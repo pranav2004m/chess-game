@@ -71,10 +71,33 @@ public class ObjectPool : MonoBehaviour {
         }
         ChessPiece = _materialManager.changeMaterial(ChessPiece , chessType, color);
         
-        ChessPiece.GetComponent<PiecePieces>().IsWhite = color==ChessColor.White;
+        // Only set IsWhite if the piece has a PiecePieces component (for monster pieces)
+        PiecePieces piecePieces = ChessPiece.GetComponent<PiecePieces>();
+        if (piecePieces != null)
+        {
+            piecePieces.IsWhite = color == ChessColor.White;
+        }
+        
         ChessPiece.transform.position = placement;
+        
+        // Adjust scale and position for standard chess pieces (without PiecePieces component)
+        if (piecePieces == null)
+        {
+            ChessPiece.transform.localScale = new Vector3(800f, 800f, 800f);
+            // Lower the piece so it sits on the board
+            Vector3 adjustedPosition = placement;
+            adjustedPosition.y -= 3f;
+            ChessPiece.transform.position = adjustedPosition;
+        }
+        
         ChessPiece.SetActive(true);
-        ExploderSingleton.Instance.CrackObject(ChessPiece);
+        
+        // Only crack the object if this is a monster piece (has PiecePieces component)
+        if (piecePieces != null && ExploderSingleton.Instance != null)
+        {
+            ExploderSingleton.Instance.CrackObject(ChessPiece);
+        }
+        
         return ChessPiece;
     }
     

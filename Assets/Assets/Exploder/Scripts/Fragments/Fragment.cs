@@ -266,7 +266,7 @@ namespace Exploder
                 {
                     var parentRigid = original.GetComponent<Rigidbody>();
 
-                    parentVelocity = parentRigid.velocity;
+                    parentVelocity = parentRigid.linearVelocity;
                     parentAngularVelocity = parentRigid.angularVelocity;
                     mass = parentRigid.mass / settings.TargetFragments;
                     useGravity = parentRigid.useGravity;
@@ -281,7 +281,7 @@ namespace Exploder
                 forceVector = settings.ForceVector;
             }
 
-            rigid.velocity = forceVector * force + parentVelocity;
+            rigid.linearVelocity = forceVector * force + parentVelocity;
             rigid.angularVelocity = angularVelocity + parentAngularVelocity;
             rigid.mass = mass;
             rigid.useGravity = useGravity;
@@ -306,7 +306,7 @@ namespace Exploder
                 {
                     var parentRigid = original.GetComponent<Rigidbody2D>();
 
-                    parentVelocity = parentRigid.velocity;
+                    parentVelocity = parentRigid.linearVelocity;
                     parentAngularVelocity = parentRigid.angularVelocity;
                     mass = parentRigid.mass / settings.TargetFragments;
                 }
@@ -320,7 +320,7 @@ namespace Exploder
                 forceVector = settings.ForceVector;
             }
 
-            rigid.velocity = forceVector * force + parentVelocity;
+            rigid.linearVelocity = forceVector * force + parentVelocity;
             rigid.angularVelocity = angularVelocity + parentAngularVelocity;
             rigid.mass = mass;
         }
@@ -446,18 +446,18 @@ namespace Exploder
                 //
                 if (rigidBody)
                 {
-                    if (rigidBody.velocity.sqrMagnitude > maxVelocity * maxVelocity)
+                    if (rigidBody.linearVelocity.sqrMagnitude > maxVelocity * maxVelocity)
                     {
-                        var vel = rigidBody.velocity.normalized;
-                        rigidBody.velocity = vel * maxVelocity;
+                        var vel = rigidBody.linearVelocity.normalized;
+                        rigidBody.linearVelocity = vel * maxVelocity;
                     }
                 }
                 else if (rigid2D)
                 {
-                    if (rigid2D.velocity.sqrMagnitude > maxVelocity * maxVelocity)
+                    if (rigid2D.linearVelocity.sqrMagnitude > maxVelocity * maxVelocity)
                     {
-                        var vel = rigid2D.velocity.normalized;
-                        rigid2D.velocity = vel * maxVelocity;
+                        var vel = rigid2D.linearVelocity.normalized;
+                        rigid2D.linearVelocity = vel * maxVelocity;
                     }
                 }
 

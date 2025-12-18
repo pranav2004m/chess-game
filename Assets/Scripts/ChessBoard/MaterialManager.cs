@@ -20,31 +20,38 @@ public class MaterialManager : MonoBehaviour {
     
     public GameObject changeMaterial(GameObject Piece, ChessType chessType, ChessColor color)
     {
+        // Try to get MeshRenderer first (for standard chess pieces), then SkinnedMeshRenderer (for monster pieces)
+        Renderer renderer = Piece.GetComponentInChildren<MeshRenderer>();
+        if (renderer == null)
+        {
+            renderer = Piece.GetComponentInChildren<SkinnedMeshRenderer>();
+        }
+        
+        if (renderer == null)
+        {
+            Debug.LogWarning("No MeshRenderer or SkinnedMeshRenderer found on piece: " + Piece.name);
+            return Piece;
+        }
+
         switch (chessType) 
         {
             case ChessType.Bishop: 
-                Piece.GetComponentInChildren<SkinnedMeshRenderer>().material =
-                    color == ChessColor.Black ? BishopBlack : BishopWhite; 
+                renderer.material = color == ChessColor.Black ? BishopBlack : BishopWhite; 
                 break;
             case ChessType.Rook:
-                Piece.GetComponentInChildren<SkinnedMeshRenderer>().material =
-                    color == ChessColor.Black ? RookBlack : RookWhite;
+                renderer.material = color == ChessColor.Black ? RookBlack : RookWhite;
                 break;
             case ChessType.Pawn: 
-                Piece.GetComponentInChildren<SkinnedMeshRenderer>().material =
-                    color == ChessColor.Black ? PawnBlack : PawnWhite;
+                renderer.material = color == ChessColor.Black ? PawnBlack : PawnWhite;
                 break;
             case ChessType.King: 
-                Piece.GetComponentInChildren<SkinnedMeshRenderer>().material =
-                    color == ChessColor.Black ? KingBlack : KingWhite;
+                renderer.material = color == ChessColor.Black ? KingBlack : KingWhite;
                 break;
             case ChessType.Knight: 
-                Piece.GetComponentInChildren<SkinnedMeshRenderer>().material =
-                    color == ChessColor.Black ? KnightBlack : KnightWhite;
+                renderer.material = color == ChessColor.Black ? KnightBlack : KnightWhite;
                 break;
             case ChessType.Queen: 
-                Piece.GetComponentInChildren<SkinnedMeshRenderer>().material =
-                    color == ChessColor.Black ? QueenBlack : QueenWhite;
+                renderer.material = color == ChessColor.Black ? QueenBlack : QueenWhite;
                 break;
         }
         return Piece;

@@ -262,7 +262,13 @@ public class BoardManager : MonoBehaviour{
     {
         playing = false;
         yield return new WaitForSeconds(1f);
-        yield return new WaitUntil(() => _map[piece].GetComponent<PiecePieces>()._arrived);
+        
+        PiecePieces piecePieces = _map[piece].GetComponent<PiecePieces>();
+        if (piecePieces != null)
+        {
+            yield return new WaitUntil(() => piecePieces._arrived);
+        }
+        
         EndGameUI.EndGameWin(color);
     }
 
@@ -270,7 +276,13 @@ public class BoardManager : MonoBehaviour{
     {
         playing = false;
         yield return new WaitForSeconds(1f);
-        yield return new WaitUntil(() => _map[piece].GetComponent<PiecePieces>()._arrived);
+        
+        PiecePieces piecePieces = _map[piece].GetComponent<PiecePieces>();
+        if (piecePieces != null)
+        {
+            yield return new WaitUntil(() => piecePieces._arrived);
+        }
+        
         EndGameUI.EndGameNull();
     }
 }
