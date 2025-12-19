@@ -5,6 +5,14 @@ using ChessModel;
 using Player;
 using UnityEngine;
 
+public enum Difficulty
+{
+    Random = 0,
+    Easy = 2,
+    Medium = 4,
+    Hard = 6
+}
+
 public class MainMenuScpirt : MonoBehaviour {
 
     public GameObject firstMenu;
@@ -14,10 +22,16 @@ public class MainMenuScpirt : MonoBehaviour {
     public GameObject pauseMenu;
     
     public BoardManager boardManager;
+    public NetworkMultiplayerManager networkManager;
 
     private GameMode _gameMode;
     private Dictionary<ChessColor, Player.Player> _players;
     private ChessColor _playerColor;
+
+    // Testing helpers to control host/join behavior per editor instance
+    [SerializeField] private bool joinExistingGameForTesting = false;
+    [SerializeField] private string testGameId = ""; // Set this in Editor 2 to the host's Game ID
+    [SerializeField] private string testJoinColor = "black"; // "white" or "black"
     
     void Start()
     {
@@ -88,19 +102,31 @@ public class MainMenuScpirt : MonoBehaviour {
 
     public void SelectColorWhite()
     {
-        SelectColor(ChessColor.Black);
+        // White button should select White
+        SelectColor(ChessColor.White);
     }
     
     public void SelectColorBlack()
     {
-        SelectColor(ChessColor.White);
+        // Black button should select Black
+        SelectColor(ChessColor.Black);
     }
 
     private void SelectColor(ChessColor color)
     {
         _playerColor = color;
         colorSelection.SetActive(false);
-        ShowAiDifficulty();
+        
+        if (_gameMode == GameMode.OnlineMultiplayer)
+        {
+            // For online mode, create a game and join as selected color
+            string colorString = _playerColor == ChessColor.White ? "white" : "black";
+            CreateOnlineGame(colorString);
+        }
+        else
+        {
+            ShowAiDifficulty();
+        }
     }
 
     private void ShowColorSelection()
@@ -201,6 +227,33 @@ public class MainMenuScpirt : MonoBehaviour {
         SelectGameMode(GameMode.Aivai);
     }
 
+    public void SelectOnlineMultiplayerMode()
+    {
+        // If configured to join an existing game directly (Editor 2 flow), do that and return
+        if (joinExistingGameForTesting && !string.IsNullOrEmpty(testGameId))
+        {
+            string joinColor = string.IsNullOrEmpty(testJoinColor) ? "white" : testJoinColor.ToLowerInvariant();
+            if (joinColor != "white" && joinColor != "black")
+            {
+                joinColor = "white";
+            }
+            Debug.Log($"[Online] Join override enabled. Joining game {testGameId} as {joinColor}.");
+            JoinOnlineGame(testGameId, joinColor);
+            return;
+        }
+
+        // Default: Host flow — select a color then create the online game
+        _gameMode = GameMode.OnlineMultiplayer;
+        Debug.Log("[Online] Host flow selected. Showing color selection for create.");
+        colorSelection.SetActive(true);
+        modeSelection.SetActive(false);
+
+        // Default (host) flow: choose color then create game on server
+        modeSelection.SetActive(false);
+        colorSelection.SetActive(true);
+        _gameMode = GameMode.OnlineMultiplayer;
+    }
+
     public void ToMainMenuFromModeSelection()
     {
         firstMenu.SetActive(true);
@@ -218,16 +271,61 @@ public class MainMenuScpirt : MonoBehaviour {
         Application.Quit();
     }
 
+    // ========== ONLINE MULTIPLAYER METHODS ==========
+    
+    private void CreateOnlineGame(string color)
+    {
+        if (networkManager == null)
+        {
+            Debug.LogError("NetworkMultiplayerManager not assigned in Inspector!");
+            return;
+        }
+        
+        // Create game and display the game ID for opponent
+        networkManager.CreateOnlineGame(color);
+        
+        Debug.Log("Game created! Share the Game ID with your opponent.");
+        Debug.Log($"Game ID: {networkManager.GetGameId()}");
+        
+        // TODO: Show UI with game ID and "Waiting for opponent..." message
+        StartGame();
+    }
+    
+    public void JoinOnlineGame(string gameId, string color)
+    {
+        if (networkManager == null)
+        {
+            Debug.LogError("NetworkMultiplayerManager not assigned in Inspector!");
+            return;
+        }
+        
+        networkManager.JoinOnlineGame(gameId, color);
+        Debug.Log($"Joining game {gameId} as {color}");
+        
+        StartGame();
+    }
+
     public enum GameMode {
         Pvp,
         Pvai,
-        Aivai
+        Aivai,
+        OnlineMultiplayer
     }
 
-    private enum Difficulty {
-        Random,
-        Easy = 1,
-        Medium = 2,
-        Hard = 3
+    // Dedicated join action to wire to a button for Editor 2
+    public void JoinOnlineNow()
+    {
+        if (!joinExistingGameForTesting || string.IsNullOrEmpty(testGameId))
+        {
+            Debug.LogError("[Online] JoinOnlineNow called but test join settings are not configured.");
+            return;
+        }
+        var joinColor = string.IsNullOrEmpty(testJoinColor) ? "white" : testJoinColor.ToLowerInvariant();
+        if (joinColor != "white" && joinColor != "black")
+        {
+            joinColor = "white";
+        }
+        Debug.Log($"[Online] Forcing join via button. Joining game {testGameId} as {joinColor}.");
+        JoinOnlineGame(testGameId, joinColor);
     }
 }

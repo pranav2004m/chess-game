@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +30,10 @@ public class BoardManager : MonoBehaviour{
     public GameObject menuCam;
 
     private Dictionary<Piece, GameObject> _map;
+
+    // Online multiplayer gating: when true, only allow localHumanColor to move
+    [NonSerialized] public bool onlineMultiplayer = false;
+    [NonSerialized] public ChessColor localHumanColor = ChessColor.White;
 
     private void Start()
     {
@@ -120,6 +125,9 @@ public class BoardManager : MonoBehaviour{
         }
     }
 
+    // Raised whenever a local human move is made (after applying to board)
+    public event Action<Move> OnLocalMoveMade;
+
     public void ClickTile(int placement)
     {
         if (!_humainPlayer || !playing) return;
@@ -140,6 +148,7 @@ public class BoardManager : MonoBehaviour{
                 _humainPlayer = false;
                 _chessBoard.Play(move);
                 MovePiece(_map[move.Piece], move);
+                OnLocalMoveMade?.Invoke(move);
                 _legalMoves.Clear();
                 _firstClick = true;
             }
@@ -171,13 +180,15 @@ public class BoardManager : MonoBehaviour{
         var currentPlayer = _players[nextToPlay];
         if (currentPlayer == null){
             whiteCam.SetActive(nextToPlay == ChessColor.White);
-            _humainPlayer = true;
+            // In online mode, only allow human input for the local player's color
+            _humainPlayer = !onlineMultiplayer || (nextToPlay == localHumanColor);
         }
         else
         {
             var move = currentPlayer.GetDesiredMove();
             MovePiece(_map[move.Piece], move);
             _chessBoard.Play(move);
+            OnLocalMoveMade?.Invoke(move);
         }
     }
 
@@ -204,6 +215,25 @@ public class BoardManager : MonoBehaviour{
     private void RockDone(object sender, Move move)
     {
         MovePiece(_map[move.Piece], move, true);
+    }
+
+    // Apply a remote move coming from the server
+    public void ApplyRemoteMove(int startPosition, int endPosition)
+    {
+        var piece = _chessBoard.Board[startPosition];
+        if (piece == null || piece.Type == ChessType.None)
+            return;
+        var legal = piece.GetLegalMoves();
+        var move = legal.FirstOrDefault(m => m.EndPosition == endPosition);
+        if (move == null)
+        {
+            // Fallback: attempt direct switch without effects (best effort)
+            _chessBoard.Play(new Move(startPosition, endPosition, piece, _chessBoard.Board[endPosition]));
+            MovePiece(_map[piece], new Move(startPosition, endPosition, piece, _chessBoard.Board[endPosition]));
+            return;
+        }
+        _chessBoard.Play(move);
+        MovePiece(_map[move.Piece], move);
     }
 
     public void Promotion(Piece piece)
