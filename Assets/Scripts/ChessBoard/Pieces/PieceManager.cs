@@ -17,6 +17,8 @@ public class PieceManager : MonoBehaviour
     
     public void MovePiece(GameObject piece, Vector3 placement, bool rock = false)
     {
+        // Preserve current Y to avoid vertical drift when using NavMeshAgent
+        placement.y = piece.transform.position.y;
         PiecePieces piecePieces = piece.GetComponent<PiecePieces>();
         if (piecePieces != null)
         {
@@ -32,6 +34,9 @@ public class PieceManager : MonoBehaviour
 
     public void AttackWithPiece(GameObject piece, Vector3 placement, Vector3 enemyPlacement, GameObject enemy)
     {
+        // Preserve current Y values to keep movement grounded
+        placement.y = piece.transform.position.y;
+        enemyPlacement.y = enemy.transform.position.y;
         PiecePieces piecePieces = piece.GetComponent<PiecePieces>();
         if (piecePieces != null)
         {
