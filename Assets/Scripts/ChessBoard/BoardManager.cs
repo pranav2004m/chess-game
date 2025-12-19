@@ -110,6 +110,12 @@ public class BoardManager : MonoBehaviour{
         GetComponent<AudioSource>().Play();
         playing = true;
         paused = true;
+
+        // In online multiplayer, pin camera to local player color
+        if (onlineMultiplayer)
+        {
+            whiteCam.SetActive(localHumanColor == ChessColor.White);
+        }
     }
 
     private void MovePiece(GameObject piece, Move move, bool rock = false)
@@ -179,7 +185,8 @@ public class BoardManager : MonoBehaviour{
 
         var currentPlayer = _players[nextToPlay];
         if (currentPlayer == null){
-            whiteCam.SetActive(nextToPlay == ChessColor.White);
+            // Pin camera to local color in online mode, else follow turn
+            whiteCam.SetActive(!onlineMultiplayer ? (nextToPlay == ChessColor.White) : (localHumanColor == ChessColor.White));
             // In online mode, only allow human input for the local player's color
             _humainPlayer = !onlineMultiplayer || (nextToPlay == localHumanColor);
         }
