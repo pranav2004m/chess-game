@@ -32,6 +32,4 @@ Simply download the lastest release, unzip the build and use the executable in i
 ### Mode selection :
 ![image](https://user-images.githubusercontent.com/71391756/185759198-9cc48579-9790-400f-9694-133d09e17e61.png)
 
-### In game :
-![image](https://user-images.githubusercontent.com/71391756/185759222-00220768-a62b-4ea3-9cd8-50f445caff94.png)
 # chess-game
