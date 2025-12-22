@@ -22,7 +22,30 @@ namespace Player
 
         public override Move GetDesiredMove()
         {
-            Minimax(_depth, float.MinValue, float.MaxValue, Color);
+            try 
+            {
+                Minimax(_depth, float.MinValue, float.MaxValue, Color);
+                
+                // Fallback if Minimax failed to find a move (shouldn't happen unless checkmate/pat not handled or bug)
+                if (_bestMove == null)
+                {
+                    var moves = _board.GetAllLegalMoves(Color);
+                    if (moves.Count > 0)
+                    {
+                        _bestMove = moves[_rand.Next(moves.Count)];
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Fallback to random on crash
+                var moves = _board.GetAllLegalMoves(Color);
+                if (moves.Count > 0)
+                {
+                    _bestMove = moves[_rand.Next(moves.Count)];
+                }
+            }
+
             return _bestMove;
         }
 

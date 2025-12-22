@@ -28,7 +28,7 @@ public class PieceManager : MonoBehaviour
         {
             // For standard chess pieces, just move directly without animation
             piece.transform.position = placement;
-            FinishedAnim();
+            if(!rock) FinishedAnim();
         }
     }
 

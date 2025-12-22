@@ -144,6 +144,11 @@ public class MainMenuScpirt : MonoBehaviour {
 
     private void StartGame()
     {
+        firstMenu.SetActive(false);
+        modeSelection.SetActive(false);
+        colorSelection.SetActive(false);
+        aiDifficulty.SetActive(false);
+        
         GetComponent<AudioSource>().Stop();
         boardManager.InitialisePlay(_players);
     }
@@ -182,19 +187,22 @@ public class MainMenuScpirt : MonoBehaviour {
 
     private void AssignDifficulty(Difficulty difficulty)
     {
-        Player.Player player = difficulty == Difficulty.Random ? new RandomPlayer(_playerColor) : (Player.Player) new MinmaxPlayer(_playerColor, (int)difficulty);
+        var aiColor = _playerColor.Reverse();
+        Player.Player player = difficulty == Difficulty.Random ? new RandomPlayer(aiColor) : (Player.Player) new MinmaxPlayer(aiColor, (int)difficulty);
 
-        if ( _playerColor == ChessColor.White)
-        {
-            _players[ChessColor.White] = player;
-        }
-        else
-        {
-            _players[ChessColor.Black] = player;
-        }
-
+        _players[aiColor] = player;
+        _players[_playerColor] = null;
+        
         if (_gameMode == GameMode.Aivai && _playerColor == ChessColor.White)
         {
+            // Specifically for AI vs AI, we might need two AIs?
+            // The logic here seems to handle one AI creation.
+            // If GameMode is AI vs AI, standard flow might be different.
+            // But for PvAI, the above is correct.
+            // Let's preserve existing AI vs AI check logic but adapting to new variable names if needed.
+            // Originals: if (_gameMode == GameMode.Aivai && _playerColor == ChessColor.White) _playerColor = ChessColor.Black; 
+            // This seems to be a mechanism to swap turn/color or something. 
+            // I'll keep the block below as is, just noting the AI assignment above.
             _playerColor = ChessColor.Black;
         }
         else

@@ -258,25 +258,32 @@ namespace ChessModel
 
             void CheckDiagonals()
             {
-                var tileColor = Board.TileColor(Position);
-                for (var i = Position + 9; i < Board.Board.Length; i += 9)
+                // Top-Right (+9)
+                for (var i = Position + 9; i < 64; i += 9)
                 {
-                    if (Board.TileColor(i) != tileColor || Check(i)) break;
+                    if (Math.Abs(Row - i / 8) != Math.Abs(Column - i % 8)) break; // Prevent wrapping
+                    if (Check(i)) break;
                 }
 
-                for (var i = Position - 9; i >= 0; i -= 9)
-                {
-                    if (Board.TileColor(i) != tileColor || Check(i)) break;
-                }
-
+                // Top-Left (+7)
                 for (var i = Position + 7; i < 64; i += 7)
                 {
-                    if (Board.TileColor(i) != tileColor || Check(i)) break;
+                    if (Math.Abs(Row - i / 8) != Math.Abs(Column - i % 8)) break; // Prevent wrapping
+                    if (Check(i)) break;
                 }
 
+                // Bottom-Right (-7)
                 for (var i = Position - 7; i >= 0; i -= 7)
                 {
-                    if (Board.TileColor(i) != tileColor || Check(i)) break;
+                    if (Math.Abs(Row - i / 8) != Math.Abs(Column - i % 8)) break; // Prevent wrapping
+                    if (Check(i)) break;
+                }
+
+                // Bottom-Left (-9)
+                for (var i = Position - 9; i >= 0; i -= 9)
+                {
+                    if (Math.Abs(Row - i / 8) != Math.Abs(Column - i % 8)) break; // Prevent wrapping
+                    if (Check(i)) break;
                 }
             }
 

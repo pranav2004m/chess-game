@@ -129,28 +129,52 @@ public class PiecePieces : MonoBehaviour
         _arrived = true;
     }
 
+    private float _moveTimer;
+
     private void Update()
     {
         _anim.SetBool("moving",_moving);
         _anim.SetBool("attacking",_attackAnimation);
 
-        if (_moving && !_navMeshAgent.pathPending)
+        if (_moving)
         {
-            if (_attacking && _navMeshAgent.remainingDistance < 5)
+            _moveTimer += Time.deltaTime;
+        
+            if (!_navMeshAgent.pathPending)
             {
-                StartCoroutine(AttackTarget());
-                _moving = false;
-                _navMeshAgent.SetDestination(transform.position);
-                _audioWalk.Stop();
+                if (_attacking && _navMeshAgent.remainingDistance < 5)
+                {
+                    StartCoroutine(AttackTarget());
+                    _moving = false;
+                    _navMeshAgent.SetDestination(transform.position);
+                    _audioWalk.Stop();
+                }
+                else if(_navMeshAgent.remainingDistance < 0.25)
+                {
+                    _moving = false;
+                    _audioWalk.Stop();
+                    _navMeshAgent.SetDestination(transform.position);
+                    Rotate();
+                    if(!_rock) TurnFinal();
+                }
             }
-            else if(_navMeshAgent.remainingDistance < 0.25)
+
+            // Failsafe: If moving exceeds 3 seconds, force finish
+            if (_moveTimer > 3f)
             {
                 _moving = false;
                 _audioWalk.Stop();
-                _navMeshAgent.SetDestination(transform.position);
-                Rotate();
-                if(!_rock) TurnFinal();
+                _navMeshAgent.SetDestination(transform.position); // Stop agent
+                // Snap to destination? Or just accept we are close enough?
+                // Using transform.position might lead to visual drift if completely stuck.
+                // But better than hanging.
+                Rotate(); 
+                if(!_rock) TurnFinal(); 
             }
+        }
+        else
+        {
+            _moveTimer = 0f;
         }
     }
 }

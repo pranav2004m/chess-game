@@ -93,7 +93,8 @@ public class BoardManager : MonoBehaviour{
         {
             if (piece.Type == ChessType.None) continue;
             GameObject gameObjectPiece = createPieceOnPlacement(piece.Type, piece.Color, piece.Position);
-            gameObjectPiece.GetComponent<PiecePieces>().ResetMovement();
+            var piecePieces = gameObjectPiece.GetComponent<PiecePieces>();
+            if (piecePieces != null) piecePieces.ResetMovement();
             _map.Add(piece, gameObjectPiece);
         }
         playing = true;
@@ -102,7 +103,9 @@ public class BoardManager : MonoBehaviour{
     public void InitialisePlay(Dictionary<ChessColor, Player.Player> players)
     {
         if (players[ChessColor.White] != null && players[ChessColor.Black] == null)
-            whiteCam.SetActive(false);
+        {
+            // whiteCam.SetActive(false); // Commented out to prevent black screen if no invalid camera is available.
+        }
 
         _players = players;
         
@@ -193,8 +196,8 @@ public class BoardManager : MonoBehaviour{
         else
         {
             var move = currentPlayer.GetDesiredMove();
-            MovePiece(_map[move.Piece], move);
             _chessBoard.Play(move);
+            MovePiece(_map[move.Piece], move);
             OnLocalMoveMade?.Invoke(move);
         }
     }

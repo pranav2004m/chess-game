@@ -166,6 +166,8 @@ namespace Exploder
 
         public void Update()
         {
+            if (!initialized) return;
+
             frameWatch.Reset();
             frameWatch.Start();
 
