@@ -69,6 +69,75 @@ public class NetworkMultiplayerManager : MonoBehaviour
         playerColor = color;
         networkClient.JoinGame(gameId, color);
     }
+    
+    /// <summary>
+    /// Join game with automatic color selection based on what's available
+    /// </summary>
+    public void JoinOnlineGameAuto(string gameIdToJoin, System.Action<bool> onJoined = null)
+    {
+        StartCoroutine(JoinWithAutoColorCoroutine(gameIdToJoin, onJoined));
+    }
+    
+    private IEnumerator JoinWithAutoColorCoroutine(string gameIdToJoin, System.Action<bool> onJoined)
+    {
+        bool joined = false;
+        GameStateData stateData = null;
+        
+        Debug.Log($"🔍 Step 1: Querying game state for {gameIdToJoin}...");
+        
+        // Query game state to determine available color
+        networkClient.QueryGameState(gameIdToJoin, (state) => {
+            stateData = state;
+        });
+        
+        // Wait for response
+        yield return new WaitForSeconds(0.5f);
+        
+        if (stateData == null)
+        {
+            Debug.LogError($"❌ Could not query game {gameIdToJoin}");
+            Debug.LogError($"   Possible reasons:");
+            Debug.LogError($"   1. Game ID doesn't exist on server");
+            Debug.LogError($"   2. Server is not running (check ChessServer folder)");
+            Debug.LogError($"   3. Server URL is incorrect (check ChessNetworkClient.serverUrl)");
+            onJoined?.Invoke(false);
+            yield break;
+        }
+        
+        Debug.Log($"🔍 Step 2: Game state retrieved successfully");
+        Debug.Log($"   White player: {stateData.white_player_id ?? "NONE"}");
+        Debug.Log($"   Black player: {stateData.black_player_id ?? "NONE"}");
+        
+        // Determine available color
+        string colorToJoin = "white";
+        
+        if (stateData.white_player_id != null && stateData.black_player_id == null)
+        {
+            colorToJoin = "black";
+            Debug.Log("🔍 Step 3: White is taken, joining as Black");
+        }
+        else if (stateData.black_player_id != null && stateData.white_player_id == null)
+        {
+            colorToJoin = "white";
+            Debug.Log("🔍 Step 3: Black is taken, joining as White");
+        }
+        else if (stateData.white_player_id != null && stateData.black_player_id != null)
+        {
+            Debug.LogError("❌ Game is full! Both colors are taken.");
+            onJoined?.Invoke(false);
+            yield break;
+        }
+        else
+        {
+            // Both are null, default to black
+            colorToJoin = "black";
+            Debug.Log("🔍 Game is empty, defaulting to Black");
+        }
+        
+        // Join with determined color
+        JoinOnlineGame(gameIdToJoin, colorToJoin);
+        onJoined?.Invoke(true);
+    }
 
     private void HandleGameStateChanged(GameStateData gameState)
     {

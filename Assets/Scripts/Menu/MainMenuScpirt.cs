@@ -23,12 +23,17 @@ public class MainMenuScpirt : MonoBehaviour {
     
     public BoardManager boardManager;
     public NetworkMultiplayerManager networkManager;
+    public MultiplayerMenuUI multiplayerMenuUI;
 
     private GameMode _gameMode;
     private Dictionary<ChessColor, Player.Player> _players;
     private ChessColor _playerColor;
+    
+    // Multiplayer state tracking
+    private bool _isMultiplayerHost = false;
+    private string _pendingGameId = "";
 
-    // Testing helpers to control host/join behavior per editor instance
+    // Testing helpers to control host/join behavior per editor instance (DEPRECATED - use UI instead)
     [SerializeField] private bool joinExistingGameForTesting = false;
     [SerializeField] private string testGameId = ""; // Set this in Editor 2 to the host's Game ID
     [SerializeField] private string testJoinColor = "black"; // "white" or "black"
@@ -119,9 +124,14 @@ public class MainMenuScpirt : MonoBehaviour {
         
         if (_gameMode == GameMode.OnlineMultiplayer)
         {
-            // For online mode, create a game and join as selected color
             string colorString = _playerColor == ChessColor.White ? "white" : "black";
-            CreateOnlineGame(colorString);
+            
+            // Only host uses color selection now - create game and start immediately
+            if (_isMultiplayerHost)
+            {
+                CreateOnlineGame(colorString);
+            }
+            // Note: Join flow no longer uses color selection
         }
         else
         {
@@ -237,7 +247,7 @@ public class MainMenuScpirt : MonoBehaviour {
 
     public void SelectOnlineMultiplayerMode()
     {
-        // If configured to join an existing game directly (Editor 2 flow), do that and return
+        // Check if using legacy testing mode (DEPRECATED)
         if (joinExistingGameForTesting && !string.IsNullOrEmpty(testGameId))
         {
             string joinColor = string.IsNullOrEmpty(testJoinColor) ? "white" : testJoinColor.ToLowerInvariant();
@@ -245,21 +255,26 @@ public class MainMenuScpirt : MonoBehaviour {
             {
                 joinColor = "white";
             }
-            Debug.Log($"[Online] Join override enabled. Joining game {testGameId} as {joinColor}.");
+            Debug.Log($"[Online] DEPRECATED: Join override enabled. Joining game {testGameId} as {joinColor}.");
             JoinOnlineGame(testGameId, joinColor);
             return;
         }
 
-        // Default: Host flow — select a color then create the online game
+        // Show the new multiplayer menu UI
         _gameMode = GameMode.OnlineMultiplayer;
-        Debug.Log("[Online] Host flow selected. Showing color selection for create.");
-        colorSelection.SetActive(true);
         modeSelection.SetActive(false);
-
-        // Default (host) flow: choose color then create game on server
-        modeSelection.SetActive(false);
-        colorSelection.SetActive(true);
-        _gameMode = GameMode.OnlineMultiplayer;
+        
+        if (multiplayerMenuUI != null)
+        {
+            multiplayerMenuUI.ShowMultiplayerMenu();
+        }
+        else
+        {
+            Debug.LogError("MultiplayerMenuUI not assigned! Using fallback host flow.");
+            // Fallback to old behavior
+            colorSelection.SetActive(true);
+            _isMultiplayerHost = true;
+        }
     }
 
     public void ToMainMenuFromModeSelection()
@@ -272,6 +287,37 @@ public class MainMenuScpirt : MonoBehaviour {
     {
         firstMenu.SetActive(false);
         modeSelection.SetActive(true);
+    }
+    
+    /// <summary>
+    /// Called by MultiplayerMenuUI to show color selection for host or join
+    /// </summary>
+    public void ShowColorSelectionForMultiplayer(bool isHost, string gameId = "")
+    {
+        _isMultiplayerHost = isHost;
+        _pendingGameId = gameId;
+        _gameMode = GameMode.OnlineMultiplayer;
+        
+        colorSelection.SetActive(true);
+        
+        if (isHost)
+        {
+            Debug.Log("[Multiplayer] Host - Select your color to create game");
+        }
+        else
+        {
+            Debug.Log($"[Multiplayer] Join - Select your color to join game {gameId}");
+        }
+    }
+    
+    /// <summary>
+    /// Called by MultiplayerMenuUI back button
+    /// </summary>
+    public void ReturnToModeSelection()
+    {
+        modeSelection.SetActive(true);
+        _isMultiplayerHost = false;
+        _pendingGameId = "";
     }
     
     public void Exit()
@@ -289,13 +335,26 @@ public class MainMenuScpirt : MonoBehaviour {
             return;
         }
         
-        // Create game and display the game ID for opponent
+        // Create game and immediately start playing
         networkManager.CreateOnlineGame(color);
         
-        Debug.Log("Game created! Share the Game ID with your opponent.");
-        Debug.Log($"Game ID: {networkManager.GetGameId()}");
+        // Log game ID to console for sharing (no UI panel)
+        StartCoroutine(StartGameAfterCreation());
+    }
+    
+    private IEnumerator StartGameAfterCreation()
+    {
+        // Wait a frame for game ID to be set by NetworkMultiplayerManager
+        yield return null;
         
-        // TODO: Show UI with game ID and "Waiting for opponent..." message
+        string gameId = networkManager.GetGameId();
+        
+        Debug.Log("═══════════════════════════════════════════════");
+        Debug.Log($"🎮 GAME CREATED! Share this ID with your opponent:");
+        Debug.Log($"📋 Game ID: {gameId}");
+        Debug.Log("═══════════════════════════════════════════════");
+        
+        // Start game immediately (host doesn't wait)
         StartGame();
     }
     
@@ -310,6 +369,38 @@ public class MainMenuScpirt : MonoBehaviour {
         networkManager.JoinOnlineGame(gameId, color);
         Debug.Log($"Joining game {gameId} as {color}");
         
+        StartGame();
+    }
+    
+    /// <summary>
+    /// Join game directly without color selection - auto-picks available color
+    /// </summary>
+    public void JoinGameDirectly(string gameId)
+    {
+        if (networkManager == null)
+        {
+            Debug.LogError("NetworkMultiplayerManager not assigned in Inspector!");
+            return;
+        }
+        
+        _gameMode = GameMode.OnlineMultiplayer;
+        _isMultiplayerHost = false;
+        
+        // Query server to determine available color and join
+        StartCoroutine(JoinGameWithAutoColor(gameId));
+    }
+    
+    private IEnumerator JoinGameWithAutoColor(string gameId)
+    {
+        Debug.Log($"🔗 Joining game {gameId} as Black (default joining color)");
+        
+        // Simply join as black - no server query needed
+        networkManager.JoinOnlineGame(gameId, "black");
+        
+        // Wait a moment for connection
+        yield return new WaitForSeconds(0.5f);
+        
+        Debug.Log($"✅ Joined game {gameId}");
         StartGame();
     }
 

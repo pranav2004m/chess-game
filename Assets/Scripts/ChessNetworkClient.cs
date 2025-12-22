@@ -164,6 +164,39 @@ public class ChessNetworkClient : MonoBehaviour
     {
         StartCoroutine(GetGameStateCoroutine(onStateReceived));
     }
+    
+    /// <summary>
+    /// Query game state for a specific game without joining (for determining available color)
+    /// </summary>
+    public void QueryGameState(string queryGameId, Action<GameStateData> onStateReceived = null)
+    {
+        StartCoroutine(QueryGameStateCoroutine(queryGameId, onStateReceived));
+    }
+    
+    private IEnumerator QueryGameStateCoroutine(string queryGameId, Action<GameStateData> onStateReceived)
+    {
+        Debug.Log($"🔍 Querying server: {serverUrl}/game/{queryGameId}/state");
+        
+        using (UnityWebRequest request = UnityWebRequest.Get($"{serverUrl}/game/{queryGameId}/state"))
+        {
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log($"✅ Server response: {request.downloadHandler.text}");
+                var response = JsonUtility.FromJson<GameStateResponse>(request.downloadHandler.text);
+                onStateReceived?.Invoke(response.game_state);
+            }
+            else
+            {
+                Debug.LogError($"❌ Failed to query game state for {queryGameId}");
+                Debug.LogError($"   Error: {request.error}");
+                Debug.LogError($"   Response Code: {request.responseCode}");
+                Debug.LogError($"   Server URL: {serverUrl}");
+                onStateReceived?.Invoke(null);
+            }
+        }
+    }
 
     private IEnumerator GetGameStateCoroutine(Action<GameStateData> onStateReceived)
     {
