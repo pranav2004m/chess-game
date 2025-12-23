@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using ChessModel;
 using Player;
 using UnityEngine;
+using TMPro;
 
 public enum Difficulty
 {
@@ -18,12 +19,17 @@ public class MainMenuScpirt : MonoBehaviour {
     public GameObject firstMenu;
     public GameObject modeSelection;
     public GameObject colorSelection;
+    public GameObject multiplayerColorSelection;
     public GameObject aiDifficulty;
     public GameObject pauseMenu;
     
     public BoardManager boardManager;
     public NetworkMultiplayerManager networkManager;
     public MultiplayerMenuUI multiplayerMenuUI;
+    
+    [Header("Multiplayer UI Elements")]
+    public TMP_Text gameIdDisplayText; // Text field to display game ID on color selection screen
+    public GameObject blackColorButton; // Reference to black button to hide for host
 
     private GameMode _gameMode;
     private Dictionary<ChessColor, Player.Player> _players;
@@ -32,6 +38,7 @@ public class MainMenuScpirt : MonoBehaviour {
     // Multiplayer state tracking
     private bool _isMultiplayerHost = false;
     private string _pendingGameId = "";
+    private bool _waitingToStartGame = false; // Flag to indicate game is created and waiting for Start Play
 
     // Testing helpers to control host/join behavior per editor instance (DEPRECATED - use UI instead)
     [SerializeField] private bool joinExistingGameForTesting = false;
@@ -43,6 +50,10 @@ public class MainMenuScpirt : MonoBehaviour {
         firstMenu.SetActive(true);
         modeSelection.SetActive(false);
         colorSelection.SetActive(false);
+        if (multiplayerColorSelection != null)
+        {
+            multiplayerColorSelection.SetActive(false);
+        }
         aiDifficulty.SetActive(false);
         pauseMenu.SetActive(false);
 
@@ -107,6 +118,15 @@ public class MainMenuScpirt : MonoBehaviour {
 
     public void SelectColorWhite()
     {
+        // If waiting to start multiplayer game, just start it
+        if (_waitingToStartGame)
+        {
+            Debug.Log("[Multiplayer] Starting game as White...");
+            _waitingToStartGame = false;
+            StartGame();
+            return;
+        }
+        
         // White button should select White
         SelectColor(ChessColor.White);
     }
@@ -120,18 +140,31 @@ public class MainMenuScpirt : MonoBehaviour {
     private void SelectColor(ChessColor color)
     {
         _playerColor = color;
-        colorSelection.SetActive(false);
+        if (_gameMode == GameMode.OnlineMultiplayer)
+        {
+            if (multiplayerColorSelection != null)
+            {
+                multiplayerColorSelection.SetActive(false);
+            }
+        }
+        else
+        {
+            if (colorSelection != null)
+            {
+                colorSelection.SetActive(false);
+            }
+        }
         
         if (_gameMode == GameMode.OnlineMultiplayer)
         {
             string colorString = _playerColor == ChessColor.White ? "white" : "black";
             
-            // Only host uses color selection now - create game and start immediately
-            if (_isMultiplayerHost)
+            // Join flow - join the game with selected color
+            if (!_isMultiplayerHost && !string.IsNullOrEmpty(_pendingGameId))
             {
-                CreateOnlineGame(colorString);
+                JoinOnlineGame(_pendingGameId, colorString);
             }
-            // Note: Join flow no longer uses color selection
+            // Note: Host flow is handled by CreateOnlineGameAndDisplayId now
         }
         else
         {
@@ -157,6 +190,10 @@ public class MainMenuScpirt : MonoBehaviour {
         firstMenu.SetActive(false);
         modeSelection.SetActive(false);
         colorSelection.SetActive(false);
+        if (multiplayerColorSelection != null)
+        {
+            multiplayerColorSelection.SetActive(false);
+        }
         aiDifficulty.SetActive(false);
         
         GetComponent<AudioSource>().Stop();
@@ -298,15 +335,49 @@ public class MainMenuScpirt : MonoBehaviour {
         _pendingGameId = gameId;
         _gameMode = GameMode.OnlineMultiplayer;
         
-        colorSelection.SetActive(true);
+        if (colorSelection != null)
+        {
+            colorSelection.SetActive(false);
+        }
+        if (multiplayerColorSelection != null)
+        {
+            multiplayerColorSelection.SetActive(true);
+        }
         
         if (isHost)
         {
-            Debug.Log("[Multiplayer] Host - Select your color to create game");
+            // Host flow: Create game immediately and display ID
+            Debug.Log("[Multiplayer] Host - Creating game as White...");
+            
+            // Hide black button for host
+            if (blackColorButton != null)
+            {
+                blackColorButton.SetActive(false);
+            }
+            
+            // Hide game ID initially, will show after creation
+            if (gameIdDisplayText != null)
+            {
+                gameIdDisplayText.gameObject.SetActive(false);
+            }
+            
+            // Create the game as white
+            CreateOnlineGameAndDisplayId("white");
         }
         else
         {
+            // Join flow: Show both buttons, hide game ID
             Debug.Log($"[Multiplayer] Join - Select your color to join game {gameId}");
+            
+            if (blackColorButton != null)
+            {
+                blackColorButton.SetActive(true);
+            }
+            
+            if (gameIdDisplayText != null)
+            {
+                gameIdDisplayText.gameObject.SetActive(false);
+            }
         }
     }
     
@@ -327,7 +398,10 @@ public class MainMenuScpirt : MonoBehaviour {
 
     // ========== ONLINE MULTIPLAYER METHODS ==========
     
-    private void CreateOnlineGame(string color)
+    /// <summary>
+    /// Create game and display ID on screen, wait for user to click Start Play
+    /// </summary>
+    private void CreateOnlineGameAndDisplayId(string color)
     {
         if (networkManager == null)
         {
@@ -335,27 +409,47 @@ public class MainMenuScpirt : MonoBehaviour {
             return;
         }
         
-        // Create game and immediately start playing
+        // Create game
         networkManager.CreateOnlineGame(color);
         
-        // Log game ID to console for sharing (no UI panel)
-        StartCoroutine(StartGameAfterCreation());
+        // Display the game ID and wait for user to click Start Play
+        StartCoroutine(DisplayGameIdAfterCreation());
     }
     
-    private IEnumerator StartGameAfterCreation()
+    private IEnumerator DisplayGameIdAfterCreation()
     {
-        // Wait a frame for game ID to be set by NetworkMultiplayerManager
-        yield return null;
+        // Wait for game ID to be set by NetworkMultiplayerManager
+        string gameId = null;
+        float timeout = 5f;
+        float elapsed = 0f;
         
-        string gameId = networkManager.GetGameId();
+        while (string.IsNullOrEmpty(gameId) && elapsed < timeout)
+        {
+            yield return new WaitForSeconds(0.1f);
+            elapsed += 0.1f;
+            gameId = networkManager.GetGameId();
+        }
+        
+        if (string.IsNullOrEmpty(gameId))
+        {
+            Debug.LogError("Failed to get game ID after timeout!");
+            yield break;
+        }
         
         Debug.Log("═══════════════════════════════════════════════");
         Debug.Log($"🎮 GAME CREATED! Share this ID with your opponent:");
         Debug.Log($"📋 Game ID: {gameId}");
         Debug.Log("═══════════════════════════════════════════════");
         
-        // Start game immediately (host doesn't wait)
-        StartGame();
+        // Display game ID on screen
+        if (gameIdDisplayText != null)
+        {
+            gameIdDisplayText.text = $"Game ID: {gameId}\n";
+            gameIdDisplayText.gameObject.SetActive(true);
+        }
+        
+        // Set flag so Start Play button will work
+        _waitingToStartGame = true;
     }
     
     public void JoinOnlineGame(string gameId, string color)
